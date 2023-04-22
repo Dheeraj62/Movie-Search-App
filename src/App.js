@@ -3,7 +3,8 @@ import './App.css';
 import Movie from './Movie';
 import Search from './Search';
 
-const MOVIE_API_URL = 'http://www.omdbapi.com/?i=tt3896198&apikey=312e3b9';
+const API_KEY = '312e3b9';
+const MOVIE_API_URL = `http://www.omdbapi.com/?apikey=${API_KEY}`;
 
 const App = () => {
   const [loading, setLoading] = useState(true);
@@ -11,24 +12,55 @@ const App = () => {
   const [errorMessage, setErrorMessage] = useState(null);
 
   useEffect(() => {
-    fetch(MOVIE_API_URL)
-      .then(response => response.json())
-      .then(jsonResponse => {
-        setMovies(jsonResponse.Search || []);
-        setLoading(false);
-      });
-  }, []);
-
-  const search = searchValue => {
-    setLoading(true);
-    setErrorMessage(null);
-
-    fetch(`https://www.omdbapi.com/?s=${searchValue}&apikey=312e3b9`)
+    fetch(`${MOVIE_API_URL}&s=batman`)
       .then(response => response.json())
       .then(jsonResponse => {
         if (jsonResponse.Response === 'True') {
-          setMovies(jsonResponse.Search || []);
+          const promises = jsonResponse.Search.map(movie => {
+            return fetch(`${MOVIE_API_URL}&i=${movie.imdbID}&plot=full`)
+              .then(response => response.json())
+              .then(movieDetails => {
+                return {
+                  ...movie,
+                  released: movieDetails.Released,
+                  imdbRating: movieDetails.imdbRating
+                };
+              });
+          });
+          Promise.all(promises).then(moviesWithDetails => {
+            setMovies(moviesWithDetails || []);
+            setLoading(false);
+          });
+        } else {
+          setErrorMessage(jsonResponse.Error);
           setLoading(false);
+        }
+      });
+  }, []);
+
+  const search = (searchValue) => {
+    setLoading(true);
+    setErrorMessage(null);
+  
+    fetch(`${MOVIE_API_URL}&s=${searchValue}&plot=full`)
+      .then(response => response.json())
+      .then(jsonResponse => {
+        if (jsonResponse.Response === 'True') {
+          const promises = jsonResponse.Search.map(movie => {
+            return fetch(`${MOVIE_API_URL}&i=${movie.imdbID}&plot=full`)
+              .then(response => response.json())
+              .then(movieDetails => {
+                return {
+                  ...movie,
+                  released: movieDetails.Released,
+                  imdbRating: movieDetails.imdbRating
+                };
+              });
+          });
+          Promise.all(promises).then(moviesWithDetails => {
+            setMovies(moviesWithDetails || []);
+            setLoading(false);
+          });
         } else {
           setErrorMessage(jsonResponse.Error);
           setLoading(false);
